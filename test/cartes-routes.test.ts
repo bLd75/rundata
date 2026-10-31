@@ -155,6 +155,52 @@ describe("the roads and the names of places on the pages' maps", () => {
     expect(NOMS_SCRIPT).toContain("+t.dataset.r<2?[...P,...F]:P");
   });
 
+  it("keep every name 6 px or more from the map's frame (EDGE), on the island's map and on each commune's", () => {
+    // 31/10/2026, /enfants/saint-pierre at 390: « Saint-Pierre » 2 px from the left edge.
+    const lonLat = (x: number, y: number) => [island.bbox[0] + (x / island.w) * (island.bbox[2] - island.bbox[0]), island.bbox[3] - (y / island.h) * (island.bbox[3] - island.bbox[1])];
+    const maps = [
+      islandMap({ label: "x" }),
+      ...island.paths.map((p) => {
+        const [, , x, y] = at(p.nom);
+        // A few points on the commune's place, as the children's places are: its name goes around them.
+        const spots = [[0, 0], [8, 0], [-8, 0], [0, 8]].map(([dx, dy], i) => lonLat(x + dx, y + dy)).map(([lon, lat], i) => ({ lon, lat, i, t: "aire", f: "jeux", name: "Aire" }));
+        return communeMap({ commune: p.nom, spots, label: "x" });
+      }),
+    ];
+    let names = 0;
+    for (const svg of maps) {
+      const [vx, vy, vw, vh] = svg.match(/viewBox="([^"]+)"/)![1].split(" ").map(Number);
+      // The map's unit: a px on a phone's screen, from the names' halo of 3 px.
+      const u = +svg.match(/<g class="nm"[^>]* stroke-width="([\d.]+)"/)![1] / 3;
+      for (const n of shown(svg)) {
+        const half = (n.nom.length * 0.56 * n.fs) / 2;
+        const room = Math.min(n.x - half - vx, n.y - 0.6 * n.fs - vy, vx + vw - (n.x + half), vy + vh - (n.y + 0.6 * n.fs)) / u;
+        expect(room, `${n.nom}, ${svg.match(/aria-label="([^"]*)"/)?.[1]}`).toBeGreaterThanOrEqual(6);
+        names++;
+      }
+    }
+    expect(names).toBeGreaterThan(100);
+  });
+
+  it("place the names a map puts first in their order, the first of them in any case (`first`)", () => {
+    const [, , x, y] = at("Saint-Pierre");
+    const lonLat = (x: number, y: number) => [island.bbox[0] + (x / island.w) * (island.bbox[2] - island.bbox[0]), island.bbox[3] - (y / island.h) * (island.bbox[3] - island.bbox[1])];
+    // Markers all around Saint-Pierre's town, every 15 units over 90: no place next to it is free.
+    const markers = Array.from({ length: 7 * 7 }, (_, k) => lonLat(x - 45 + (k % 7) * 15, y - 45 + Math.floor(k / 7) * 15)).map(([lon, lat]) => ({ lon, lat, label: "1", name: "x", round: true }));
+    const first = ["Saint-Pierre", "Le Port", "Saint-Denis", "Saint-Benoît"];
+    const names = (svg: string) => [...svg.matchAll(/<text [^>]*data-r="0"[^>]*>([^<]*)<\/text>/g)].map((m) => [m[1], m[0]] as const);
+    const without = names(islandMap({ label: "x", markers }));
+    expect(without.find(([n]) => n === "Saint-Pierre")![1]).toContain('class="nx"');
+    const svg = islandMap({ label: "x", markers, first });
+    const got = names(svg);
+    // In their order, before the others; the script places them so (data-c on the first).
+    expect(got.slice(0, 4).map(([n]) => n)).toEqual(first);
+    const sp = got[0][1];
+    expect(sp).toContain('data-c=""');
+    expect(sp).not.toContain('class="nx"');
+    expect(NOMS_SCRIPT).toContain('t.hasAttribute("data-c")');
+  });
+
   it("always name the commune of the map: at the free place inside it nearest its centre when its place is taken", () => {
     const [, , x, y] = at("Saint-Denis");
     const lonLat = (x: number, y: number) => [island.bbox[0] + (x / island.w) * (island.bbox[2] - island.bbox[0]), island.bbox[3] - (y / island.h) * (island.bbox[3] - island.bbox[1])];

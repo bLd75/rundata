@@ -18,6 +18,7 @@ import { normalize, resolvePlace } from "../places/resolve.js";
 import * as cal from "../providers/calendrier.js";
 import * as annuaire from "../providers/annuaire.js";
 import * as carburants from "../providers/carburants.js";
+import * as edf from "../providers/edf.js";
 import * as tco from "../providers/tco.js";
 import * as rt from "../providers/gtfsrt.js";
 import * as transit from "../providers/transit.js";
@@ -27,7 +28,7 @@ import * as maregraphes from "../providers/maregraphes.js";
 import * as mf from "../providers/vigilance.js";
 import { qualiteAir, type Amateurs, type Measured } from "../tools/air.js";
 import { calendrier } from "../tools/calendrier.js";
-import { electricite } from "../tools/electricite.js";
+import { electricite, produced, renewable } from "../tools/electricite.js";
 import * as houle from "../providers/houle.js";
 import { BEACHES, PRODUCTS as SEA_PRODUCTS, seaTour, TOUR as SEA_TOUR, temperatureMer, waveLine, wavesNow } from "../tools/mer.js";
 import { gaugeRow, gauges } from "../tools/maree.js";
@@ -1256,11 +1257,56 @@ export interface ElectriciteAnswer {
     mis_a_jour?: string;
     explication: string;
   };
+  /** The page's own: the island's production over EDF's last 24 hours, for the chart of /electricite (electricite-carte.ts). */
+  journee?: Journee;
   avertissements: string[];
   sources: Credit[];
 }
 
-export const buildElectricite = async (cache: Cache, now = new Date()) => needed<ElectriciteAnswer>(await electricite(cache, now), "électricité");
+/**
+ * The last 24 hours, a point every 5 minutes: `debut` (ISO) and each point's minutes after it, the renewable and the
+ * other filières' MW (`produced`, the batteries left out) and EDF's total. `mis_a_jour`: EDF's update, « 31/10 05:15 ».
+ */
+export interface Journee {
+  debut: string;
+  points: [number, number, number, number][];
+  mis_a_jour?: string;
+}
+
+/** EDF's lines as the chart's points, or undefined when there are too few to draw. */
+/** The span of EDF's live dataset, and a step more. */
+const DAY_SPAN_MS = (24 * 60 + 5) * 60_000;
+
+export function journeeOf(j: edf.Journee): Journee | undefined {
+  const read = j.lignes.filter((l) => !Number.isNaN(Date.parse(l.date)) && typeof l.total === "number");
+  // The 24 hours before the latest line only: on 31/10/2026 the dataset also held a stray line of 06/10.
+  const end = Math.max(...read.map((l) => Date.parse(l.date)));
+  const lignes = read.filter((l) => Date.parse(l.date) >= end - DAY_SPAN_MS).sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
+  if (lignes.length < 2) return undefined;
+  const t0 = Date.parse(lignes[0].date);
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  return {
+    debut: new Date(t0).toISOString(),
+    points: lignes.map((l) => {
+      const m = { ...l, statut: "" };
+      const ren = renewable(m);
+      return [Math.round((Date.parse(l.date) - t0) / 60_000), r1(ren), r1(produced(m) - ren), r1(l.total)];
+    }),
+    ...(j.mis_a_jour && { mis_a_jour: localTime(new Date(j.mis_a_jour)) }),
+  };
+}
+
+/** The tool's answer, and the 24 hours of the chart: read beside it, a day that does not answer leaves the chart out. */
+export const buildElectricite = async (cache: Cache, now = new Date()): Promise<ElectriciteAnswer> => {
+  // One read of EDF's production for both (31/10/2026): the 24 hours, and their latest line for the rest of the page;
+  // the day unread, the latest line alone, as the tool reads it.
+  const day = edf.journee(cache).catch((err) => (console.error(`source ${edf.SOURCE.id} indisponible (24 h):`, why(err)), undefined));
+  const a = await electricite(cache, now, undefined, day.then((c) => (c ? edf.latest(c) : edf.mix(cache))));
+  const d = needed<ElectriciteAnswer>(a, "électricité");
+  const c = await day;
+  const j = c && journeeOf(c.value);
+  return j ? { ...d, journee: j } : d;
+};
 
 export interface CalendrierAnswer {
   resume: string;

@@ -1,5 +1,5 @@
 import { left } from "../budget.js";
-import type { Cache } from "../cache.js";
+import type { Cache, Cached } from "../cache.js";
 import { ageMinutes, ageText, localTime } from "../geo.js";
 import { resolvePlace } from "../places/resolve.js";
 import * as cc from "../providers/coupures-courant.js";
@@ -33,6 +33,11 @@ export function produced(m: edf.Mix): number {
   return SOURCES.reduce((s, [k]) => s + Math.max(0, m[k] as number), 0);
 }
 
+/** What the renewable filières produce, as `produced` counts. */
+export function renewable(m: edf.Mix): number {
+  return SOURCES.filter(([, , enr]) => enr).reduce((s, [k]) => s + Math.max(0, m[k] as number), 0);
+}
+
 /** The share of each source and the renewable part, from one line of production, both of what produces (`produced`). */
 export function breakdown(m: edf.Mix) {
   const total = produced(m);
@@ -42,8 +47,7 @@ export function breakdown(m: edf.Mix) {
     part_pct: Math.round(((m[k] as number) / total) * 1000) / 10,
     renouvelable: enr,
   }));
-  const renewable = SOURCES.filter(([, , enr]) => enr).reduce((s, [k]) => s + Math.max(0, m[k] as number), 0);
-  return { parts: parts.sort((a, b) => b.mw - a.mw), renouvelable_pct: Math.round((renewable / total) * 1000) / 10 };
+  return { parts: parts.sort((a, b) => b.mw - a.mw), renouvelable_pct: Math.round((renewable(m) / total) * 1000) / 10 };
 }
 
 /** Hours that are not "optimal", run together per day: « jeudi 23/10 de 18h à 21h : heures de pointe (recharge conseillée 50 %) ». */
@@ -93,10 +97,11 @@ async function cuts(cache: Cache) {
 /** « 30/10 à 22:00 », when EDF last updated the signal's dataset. */
 const annonce = (iso: string) => localTime(new Date(iso)).replace(" ", " à ");
 
-export async function electricite(cache: Cache, now = new Date(), lieu?: string) {
+// `live`: the latest line when the caller has read it already (the page's copy, with its 24 hours).
+export async function electricite(cache: Cache, now = new Date(), lieu?: string, live?: Promise<Cached<edf.Mix>>) {
   const res = lieu?.trim() ? resolvePlace(lieu) : null;
   if (lieu?.trim() && !res) return notFound(lieu);
-  const [m, sig, courant] = await Promise.all([settle(edf.mix(cache)), settle(edf.signal(cache, now)), cuts(cache)]);
+  const [m, sig, courant] = await Promise.all([settle(live ?? edf.mix(cache)), settle(edf.signal(cache, now)), cuts(cache)]);
   const hours = sig?.heures;
   const coupures = courantBlock(courant, res?.lieu.commune, now);
   if (!m && !hours && !courant) {
@@ -154,7 +159,7 @@ export async function electricite(cache: Cache, now = new Date(), lieu?: string)
     coupures_annoncees: coupures,
     avertissements: [
       "La Réunion n'est pas reliée au réseau européen : toute l'électricité est produite sur l'île, d'où les périodes de tension.",
-      "Les bioénergies incluent la bagasse des sucreries (en campagne sucrière, de juillet à décembre)\u00a0; la part renouvelable est celle publiée par filière, hors stockage.",
+      "La part renouvelable est celle publiée par filière, hors stockage.",
     ],
     sources: courant ? [...credits([edf.SOURCE]), ...courant.value.sources] : credits([edf.SOURCE]),
   });

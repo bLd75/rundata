@@ -55,7 +55,7 @@ export const MOTS = {
   site: "Site du lieu",
 };
 
-export const POINTS_SCRIPT = `(()=>{const maps=[...document.querySelectorAll("svg.map")].filter((s)=>s.querySelector("a.mk,a.sp"));if(!maps.length)return;
+export const POINTS_SCRIPT = `(()=>{const maps=[...document.querySelectorAll("svg.map")].filter((s)=>s.querySelector("a.mk,a.sp"));if(!maps.length&&!document.querySelector("template.carte"))return;
 const R=${TAP_PX},LIST=${LIST_MAX},M=${MOUSE_PX},T=${JSON.stringify(MOTS)},mk=(c,t)=>{const e=document.createElement(c);if(t)e.className=t;return e};
 const lines=(a)=>[a.dataset.pn||a.dataset.tp,a.dataset.p2,a.dataset.p3].filter(Boolean);
 const mid=(a)=>{const h=a.querySelector(".hit");const r=(h||a).getBoundingClientRect();return r.width?[r.left+r.width/2,r.top+r.height/2]:null};
@@ -92,7 +92,7 @@ document.addEventListener("pointerdown",(e)=>{if(!box.hidden&&!box.contains(e.ta
 document.addEventListener("keydown",(e)=>{if(e.key==="Escape"){close();hide()}else if(e.key==="Tab"&&!e.shiftKey&&on&&document.activeElement===on&&tip.classList.contains("lien")){e.preventDefault();tip.querySelector("a").focus()}});
 addEventListener("resize",()=>{close();hide()});
 document.addEventListener("click",(e)=>{if(e.defaultPrevented||e.button||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;const a=e.target.closest&&e.target.closest("svg.map a.mk,svg.map a.sp"),r=a&&row(a);if(!r)return;e.preventDefault();hide();voir(r)});
-maps.forEach((s)=>{const pts=()=>[...s.querySelectorAll("a.mk,a.sp")];const own=!!(s.closest("figure")||s.parentElement).querySelector("[data-mtip]");
+const wire=(s)=>{const pts=()=>[...s.querySelectorAll("a.mk,a.sp")];const own=!!(s.closest("figure")||s.parentElement).querySelector("[data-mtip]");
 const nearest=(x,y)=>{const b=s.getBoundingClientRect();let best=null,k=M;s.querySelectorAll("a.sp").forEach((a)=>{const c=mid(a);if(!c||c[0]<b.left||c[0]>b.right||c[1]<b.top||c[1]>b.bottom)return;const d=Math.hypot(c[0]-x,c[1]-y);if(d<=k){k=d;best=a}});return best};
 if(!own){pts().forEach((a)=>{a.querySelectorAll("title").forEach((t)=>{if(!a.getAttribute("aria-label"))a.setAttribute("aria-label",t.textContent);t.remove()});
 a.addEventListener("focus",()=>{if(pass!==a&&a.matches(":focus-visible"))show(a)});a.addEventListener("blur",(e)=>{if(pass===a)pass=null;if(!tip.contains(e.relatedTarget))later()});
@@ -109,7 +109,8 @@ s.addEventListener("click",(e)=>{if(go)return;if(!down)return;
 const d=down,u=up||d;down=up=null;if(Math.hypot(u[0]-d[0],u[1]-d[1])>10)return;
 const b=s.getBoundingClientRect(),near=pts().map((a)=>[a,mid(a)]).filter(([,c])=>c&&c[0]>=b.left&&c[0]<=b.right&&c[1]>=b.top&&c[1]<=b.bottom).map(([a,c])=>[a,Math.hypot(c[0]-u[0],c[1]-u[1])]).filter(([,k])=>k<=R).sort((p,q)=>p[1]-q[1]).map(([a])=>a);
 if(!near.length||(near.length===1&&near[0]===e.target.closest("a.mk,a.sp")&&!near[0].matches("[data-tp]")))return;e.preventDefault();e.stopPropagation();
-if(near.length===1)fire(near[0]);else if(near.length<=LIST||s.dispatchEvent(new CustomEvent("pzoom",{cancelable:true,detail:{x:u[0],y:u[1]}})))choose(near,u[0],u[1])},true)})})();`;
+if(near.length===1)fire(near[0]);else if(near.length<=LIST||s.dispatchEvent(new CustomEvent("pzoom",{cancelable:true,detail:{x:u[0],y:u[1]}})))choose(near,u[0],u[1])},true)};maps.forEach(wire);
+document.addEventListener("carte",(e)=>{const s=e.target;if(s.matches&&s.matches("svg.map")&&s.querySelector("a.mk,a.sp"))wire(s)})})();`;
 
 /** The bubble as /meteo's (.mtip), night in both themes; the list of close points the same, its rows wide enough for a finger. */
 export const POINTS_CSS = `

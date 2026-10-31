@@ -37,6 +37,7 @@ import { FLAG_INNER } from "./flag.js";
 import { logo } from "./logo.js";
 import { esc, H as MAP_H, islandMap, mapCredit, type Marker, NOMS_SCRIPT, W as MAP_W } from "./map.js";
 import { LEGENDE_CSS, legende } from "./carte-legende.js";
+import { ELECTRICITE_CSS } from "./electricite-carte.js";
 import { typo } from "./typo.js";
 import { mentionLinks } from "../mentions.js";
 import { bannerHtml, ENCLOS, volcanBanner } from "./volcan-alerte.js";
@@ -908,7 +909,7 @@ footer.foot .brand{color:var(--on-night);margin-bottom:.8rem}
 footer.foot p+p{margin-top:.6rem}
 footer.foot h3{color:var(--on-night);font-size:1rem;margin-bottom:.4rem}
 footer.foot .slogan{font-size:1rem;padding-left:calc(1.55rem + .6rem)}
-`.replace(/\n/g, "") + AVIS_CSS + AIDE_CSS + FORMS_CSS + PWA_CSS + FOND_CSS + POINTS_CSS + LEGENDE_CSS;
+`.replace(/\n/g, "") + AVIS_CSS + AIDE_CSS + FORMS_CSS + PWA_CSS + FOND_CSS + POINTS_CSS + LEGENDE_CSS + ELECTRICITE_CSS;
 /**
  * The stylesheet, a file of its own (web/site.ts) rather than copied into every page: its address changes with its
  * content, so that browsers keep it a year and fetch it again only once it changes.
