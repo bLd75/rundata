@@ -464,7 +464,7 @@ function airLayers(d: AirAnswer | undefined) {
     const markers: Marker[] = list.map((v) => {
       const st = STATION_BY_NAME.get(v.station)!;
       const value = `${nombre(v.valeur)} ${v.unite}${v.heure !== heure ? `, ${v.heure}` : ""}`;
-      return { lon: st.lon, lat: st.lat, label: String(Math.round(v.valeur)), say: value, place: v.station, name: `${v.station} (${st.commune}) : ${value}`, color: MEASURE_PILL, quiet: true, href: `#${anchorId("st", v.station)}` };
+      return { lon: st.lon, lat: st.lat, label: String(Math.round(v.valeur)), say: value, place: v.station, name: `${v.station} (${st.commune})\u00a0: ${value}`, color: MEASURE_PILL, quiet: true, href: `#${anchorId("st", v.station)}` };
     });
     return { ...p, heure, list, others: list.filter((v) => v.heure !== heure).length, markers };
   }).filter((l) => l.markers.length);
@@ -513,10 +513,10 @@ function airMap(d: AirAnswer | undefined, layers: AirLayer[]): string {
     const place = resolvePlace(c.commune)?.lieu;
     const name = MAP_NAME.get(normalize(c.commune)) ?? c.commune;
     return place && c.niveau >= 1 && c.niveau <= 6
-      ? [{ lon: place.lon, lat: place.lat, label: String(c.niveau), say: `indice ${c.niveau} sur 6, ${AQ_NAMES[c.niveau]}`, place: name, name: `${name} : indice ${c.niveau} sur 6, ${AQ_NAMES[c.niveau]}`, color: `var(--aq${c.niveau})`, round: true, quiet: true, href: `#${anchorId("c", name)}` }]
+      ? [{ lon: place.lon, lat: place.lat, label: String(c.niveau), say: `indice ${c.niveau} sur 6, ${AQ_NAMES[c.niveau]}`, place: name, name: `${name}\u00a0: indice ${c.niveau} sur 6, ${AQ_NAMES[c.niveau]}`, color: `var(--aq${c.niveau})`, round: true, quiet: true, href: `#${anchorId("c", name)}` }]
       : [];
   });
-  return `<figure class="card mapcard">${islandMap({ markers, peaks: true, label: "Carte de La Réunion (974) : l'indice ATMO prévu dans chaque commune" })}` +
+  return `<figure class="card mapcard">${islandMap({ markers, peaks: true, apart: true, label: "Carte de La Réunion (974) : l'indice ATMO prévu dans chaque commune" })}` +
     `<figcaption class="note">Indice ATMO prévu pour aujourd'hui dans chaque commune, de 1 (bon) à 6 (extrêmement mauvais) : une prévision, pas une mesure.</figcaption></figure>`;
 }
 
@@ -1292,7 +1292,7 @@ export function cruesPage(origin: string, data: Cached<CruesAnswer> | null, now 
     if (!at) return [];
     const line = gaugeValue(s) ?? `pas de mesure dans notre lecture ${read}`;
     const where = `${s.station} · ${s.commune}`;
-    return [{ lon: at.lon, lat: at.lat, label: kind === "hausse" ? "↑" : "", name: `${where} : ${line}`, round: true, hollow: kind === "muette", big: kind === "hausse", color: GAUGE_COLOR[kind], quiet: true,
+    return [{ lon: at.lon, lat: at.lat, label: kind === "hausse" ? "↑" : "", name: `${where}\u00a0: ${line}`, round: true, hollow: kind === "muette", big: kind === "hausse", color: GAUGE_COLOR[kind], quiet: true,
       place: where, say: line, href: `#${anchorId("s", s.station)}` }];
   });
 
@@ -1421,7 +1421,7 @@ export function bornesPage(origin: string, data: Cached<BornesAnswer> | null, no
     ${ask(`Ousa mi pé roshar mon loto élèktrik vitman koté Sin-Pyèr ? Gèt si ${url} é di amwin.`,
       `Où recharger rapidement ma voiture électrique à Saint-Pierre ? Lis ${url} et dis-le-moi.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : les points de charge libres, commune par commune" })}
+  <figure class="card mapcard">${islandMap({ markers, apart: true, label: "Carte de La Réunion (974) : les points de charge libres, commune par commune" })}
   <figcaption class="note" style="color:var(--on-night-muted)">${legende([
     { forme: "rond", couleur: "#2b8a3e", texte: "3", dit: "points de charge libres dans la commune" },
     { forme: "rond", couleur: "#868e96", texte: "0", dit: "aucun libre" },
@@ -1502,7 +1502,7 @@ export function eauPage(origin: string, data: Cached<EauAnswer> | null, now = ne
   const markers = [...(d?.baignades ?? [])].sort((a, b) => rank(a.qualite_dernier_prelevement) - rank(b.qualite_dernier_prelevement)).map((s) => {
     const q = s.qualite_dernier_prelevement ?? "";
     // Every name in the bubble only: written on the map, the sites to watch were cut by its frame.
-    return { lon: s.lon, lat: s.lat, label: WATER_MARK[q] ?? "?", name: q ? `${s.site} : ${q}` : s.site, round: true, color: WATER_COLOR[q] ?? "#868e96", quiet: true,
+    return { lon: s.lon, lat: s.lat, label: WATER_MARK[q] ?? "?", name: q ? `${s.site}\u00a0: ${q}` : s.site, round: true, color: WATER_COLOR[q] ?? "#868e96", quiet: true,
       place: s.site, say: q ? `qualité ${q} au dernier prélèvement` : "pas de résultat", href: `#${anchorId("b", s.site)}` };
   });
 
@@ -1604,7 +1604,7 @@ export const fireId = (i: number) => `f-${i + 1}`;
 /** The closed trails on the map, each to its line among the closed trails (`page`: of /sentiers, from another page). */
 export const closedMarkers = (s: SentiersAnswer | undefined, page = ""): Marker[] => {
   const listed = new Set((s?.fermes_par_commune ?? []).flatMap((c) => c.sentiers_fermes.map((t) => t.sentier)));
-  return (s?.points ?? []).map((p) => ({ lon: p.lon, lat: p.lat, label: "×", name: `${p.nom} : fermé`, round: true, color: CLOSED_COLOR, quiet: true,
+  return (s?.points ?? []).map((p) => ({ lon: p.lon, lat: p.lat, label: "×", name: `${p.nom}\u00a0: fermé`, round: true, color: CLOSED_COLOR, quiet: true,
     ...(listed.has(p.nom) ? { place: p.nom, say: "sentier fermé", href: `${page}#${anchorId("t", p.nom)}` } : {}) }));
 };
 
@@ -2497,7 +2497,7 @@ navigator.geolocation.getCurrentPosition((p)=>(list?Promise.resolve(list):fetch(
 export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const url = `${origin}/defibrillateurs`;
-  const markers = (d?.communes ?? []).map((c) => ({ lon: c.lon, lat: c.lat, label: String(c.nombre), name: `${c.commune} : ${c.nombre} défibrillateurs`, round: true, color: COUNT_COLOR, quiet: true,
+  const markers = (d?.communes ?? []).map((c) => ({ lon: c.lon, lat: c.lat, label: String(c.nombre), name: `${c.commune}\u00a0: ${c.nombre} défibrillateurs`, round: true, color: COUNT_COLOR, quiet: true,
     place: c.commune, say: `${c.nombre} défibrillateur${c.nombre > 1 ? "s" : ""}`, href: `#${anchorId("c", c.commune)}` }));
 
   const status = !d
@@ -2534,7 +2534,7 @@ export function daePage(origin: string, data: Cached<DaeAnswer> | null, now = ne
     ${ask(`Ousa néna in défibrilatèr pli prés la plaj l'Ermitaz ? Gèt si ${url} é di amwin.`,
       `Où est le défibrillateur le plus proche de la plage de l'Hermitage ? Lis ${url} et dis-le-moi.`)}
   </div>
-  <figure class="card mapcard">${islandMap({ markers, label: "Carte de La Réunion (974) : le nombre de défibrillateurs par commune" })}
+  <figure class="card mapcard">${islandMap({ markers, apart: true, label: "Carte de La Réunion (974) : le nombre de défibrillateurs par commune" })}
   <figcaption class="note" style="color:var(--on-night-muted)">${legende([{ forme: "rond", couleur: COUNT_COLOR, texte: "52", dit: "défibrillateurs de la commune" }], esc(`Liste nationale Géo'DAE, lue le ${dayMonth(DAE_BUILT)}.`))}</figcaption></figure>
 </div>`;
 

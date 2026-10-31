@@ -88,8 +88,8 @@ const HIT = 66;
  * Each linked marker's hit radius: at most half the way to the nearest other one, so that no two overlap and a tap
  * between them goes to the closer; never under the marker's own size.
  */
-function hitRadii(markers: Marker[]): number[] {
-  return spaced(markers.map((m) => project(m.lon, m.lat)), markers.map((m) => !!m.href), HIT, 34).map(Math.floor).map((r) => Math.max(34, r));
+function hitRadii(markers: Marker[], at?: [number, number][]): number[] {
+  return spaced(at ?? markers.map((m) => project(m.lon, m.lat)), markers.map((m) => !!m.href), HIT, 34).map(Math.floor).map((r) => Math.max(34, r));
 }
 
 /** The same in any unit: at most `max`, at most half the way to the nearest other linked point, never under `min`. */
@@ -117,34 +117,39 @@ const GAP = 16;
 // (2), and a little air.
 const DOT = 18;
 
-/** A pill at `at` still over its own place, the place's dot hidden under it whole: it stands on its place, untied. */
+/** A marker's width and height as drawn (marker()): a pill, a disc (bigger, edged, or a ring), the hot spot's triangle. */
+const markSize = (m: Marker): [number, number] =>
+  m.triangle ? [74, 66] : m.round ? (m.hollow ? [50, 50] : m.big ? [106, 106] : [68, 68]) : [pillW(m), PILL_H];
+
+/** A marker at `at` still over its own place, the place's dot hidden under it whole: it stands on its place, untied. */
 const onPlace = (m: Marker, at: [number, number]) => {
   const [x0, y0] = project(m.lon, m.lat);
-  return Math.abs(at[0] - x0) <= pillW(m) / 2 - 12 && Math.abs(at[1] - y0) <= PILL_H / 2 - 12;
+  const [w, h] = markSize(m);
+  return Math.abs(at[0] - x0) <= w / 2 - 12 && Math.abs(at[1] - y0) <= h / 2 - 12;
 };
 
 /**
- * Where to draw each marker so that no pill covers another (`apart`): those that would are pushed apart, each the
- * least, along the shorter way out, and kept inside the map; round markers stay where they are. No pill covers a place's
+ * Where to draw each marker so that none covers another (`apart`): those that would are pushed apart, each the
+ * least, along the shorter way out, and kept inside the map; a disc too (two neighbouring communes' counts, Le Port and
+ * La Possession, the review of 31/10). No marker covers a place's
  * dot either, another's or its own once it has left it: half under a pill, a dot reads as a smudge (Saint-Denis's).
  * The same markers, the same places. `widths`: the pills' own, for pills drawn elsewhere (the wind's, meteo-carte.ts).
  * `aside`: how much further a pill may go sideways than up or down (the wind's: two places on one point side by side,
  * which leaves the room above and below to a commune's name).
  */
-export function apart(markers: Marker[], widths = markers.map(pillW), aside = 1): [number, number][] {
+export function apart(markers: Marker[], widths = markers.map((m) => markSize(m)[0]), aside = 1): [number, number][] {
   const places = markers.map((m) => project(m.lon, m.lat));
   const p = places.map(([x, y]): [number, number] => [x, y]);
   const w = widths;
-  const pill = markers.map((m) => !m.round);
+  const h = markers.map((m) => markSize(m)[1]);
   for (let round = 0; round < 200; round++) {
     let moved = false;
     for (let i = 0; i < p.length; i++) {
       for (let j = i + 1; j < p.length; j++) {
-        if (!pill[i] || !pill[j]) continue;
         const dx = p[j][0] - p[i][0];
         const dy = p[j][1] - p[i][1];
         const ox = (w[i] + w[j]) / 2 + GAP - Math.abs(dx);
-        const oy = PILL_H + GAP - Math.abs(dy);
+        const oy = (h[i] + h[j]) / 2 + GAP - Math.abs(dy);
         if (ox <= 0 || oy <= 0) continue;
         moved = true;
         // Half each; two at the same height or column apart in their order.
@@ -163,12 +168,12 @@ export function apart(markers: Marker[], widths = markers.map(pillW), aside = 1)
     // place by the coast, at the top, sends it below or beside, never above).
     for (let i = 0; i < p.length; i++) {
       for (let j = 0; j < p.length; j++) {
-        if (!pill[i] || !pill[j] || (i === j && onPlace(markers[i], p[i]))) continue;
+        if (i === j && onPlace(markers[i], p[i])) continue;
         const [qx, qy] = places[j];
-        const [hw, hh] = [w[i] / 2 + DOT, PILL_H / 2 + DOT];
+        const [hw, hh] = [w[i] / 2 + DOT, h[i] / 2 + DOT];
         if (Math.abs(qx - p[i][0]) >= hw || Math.abs(qy - p[i][1]) >= hh) continue;
         const ways: [number, number][] = [[qx - hw, p[i][1]], [qx + hw, p[i][1]], [p[i][0], qy - hh], [p[i][0], qy + hh]];
-        const inside = ways.filter(([x, y]) => x >= w[i] / 2 + GAP && x <= W - w[i] / 2 - GAP && y >= PILL_H / 2 + GAP && y <= H - PILL_H / 2 - GAP);
+        const inside = ways.filter(([x, y]) => x >= w[i] / 2 + GAP && x <= W - w[i] / 2 - GAP && y >= h[i] / 2 + GAP && y <= H - h[i] / 2 - GAP);
         const far = ([x, y]: [number, number]) => Math.abs(x - p[i][0]) + Math.abs(y - p[i][1]);
         const to = (inside.length ? inside : ways).reduce((a, b) => (far(b) < far(a) ? b : a));
         p[i] = [to[0], to[1]];
@@ -176,9 +181,8 @@ export function apart(markers: Marker[], widths = markers.map(pillW), aside = 1)
       }
     }
     for (let i = 0; i < p.length; i++) {
-      if (!pill[i]) continue;
       p[i][0] = Math.min(W - w[i] / 2 - GAP, Math.max(w[i] / 2 + GAP, p[i][0]));
-      p[i][1] = Math.min(H - PILL_H / 2 - GAP, Math.max(PILL_H / 2 + GAP, p[i][1]));
+      p[i][1] = Math.min(H - h[i] / 2 - GAP, Math.max(h[i] / 2 + GAP, p[i][1]));
     }
     if (!moved) break;
   }
@@ -191,7 +195,7 @@ function ties(markers: Marker[], at: [number, number][]): string {
     const [x0, y0] = project(m.lon, m.lat);
     const [x, y] = at[i];
     const fill = m.color ?? "var(--ink)";
-    return !m.round && !onPlace(m, at[i])
+    return !onPlace(m, at[i])
       ? `<line x1="${x0}" y1="${y0}" x2="${x}" y2="${y}" stroke="${fill}" stroke-width="4"/><circle cx="${x0}" cy="${y0}" r="10" fill="${fill}" stroke="#fff" stroke-width="4"/>`
       : "";
   }).join("");
@@ -677,11 +681,12 @@ export function islandMap(opts: {
   // What the names of places must not touch (namesLayer()).
   const busy: Box[] = [];
   const draw = (list: Marker[]) => {
-    const radii = hitRadii(list);
     const at = opts.apart ? apart(list) : undefined;
+    // Around where each marker is drawn: apart() may have moved it.
+    const radii = hitRadii(list, at);
     list.forEach((m, i) => {
       busy.push(markerBox(m, at?.[i]));
-      if (at && !m.round && !onPlace(m, at[i])) busy.push(markerBox({ ...m, round: true }));
+      if (at && !onPlace(m, at[i])) busy.push(markerBox({ ...m, round: true }));
     });
     return (at ? ties(list, at) : "") + list.map((m, i) => marker(m, radii[i], at?.[i])).join("");
   };
