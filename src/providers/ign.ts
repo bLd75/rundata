@@ -27,9 +27,9 @@ export const BDTOPO: SourceInfo = {
 
 export const PHOTOS: SourceInfo = {
   id: "ign_photos_aeriennes",
-  nom: "Photographies aériennes du relief des cartes (couche Photographies aériennes de la Géoplateforme)",
+  nom: "Photographies aériennes du relief des cartes (couche Photographies aériennes de la Géoplateforme, et BD ORTHO pour le relief fin des cartes zoomées)",
   organisme: "IGN",
   licence: "Licence Ouverte Etalab 2.0",
-  attribution: "IGN, Photographies aériennes (Géoplateforme)",
+  attribution: "IGN, Photographies aériennes (Géoplateforme) et BD ORTHO",
   url: "https://cartes.gouv.fr/aide/fr/guides-utilisateur/utiliser-les-services-de-la-geoplateforme/diffusion/wms-raster/",
 };

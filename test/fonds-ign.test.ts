@@ -1,6 +1,7 @@
+import { readdirSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { zoomControls } from "../src/web/carte-zoom.js";
-import { communeMap, FONDS, FONDS_SCRIPT, IGN_TUILES, islandMap, mapCredit, traceMap } from "../src/web/map.js";
+import { communeMap, FONDS, FONDS_SCRIPT, IGN_TUILES, islandMap, mapCredit, RELIEF_FIN, RELIEF_FIN_N, RELIEF_FIN_ZOOM, traceMap } from "../src/web/map.js";
 import { legalPage } from "../src/web/pages.js";
 import { politique } from "../src/web/securite.js";
 
@@ -42,7 +43,7 @@ describe("the IGN's backgrounds on the zoomed maps", () => {
     expect(FONDS_SCRIPT).toContain("if(t<3){again.add(key);setTimeout(()=>{again.delete(key);if(want.has(key))draw();else sweep()},1500*t)}sweep()");
     // Each its own times only, and again from the start once the map has moved.
     expect(FONDS_SCRIPT).toContain("if(have.has(key)||again.has(key)||tries.get(key)>2)continue;");
-    expect(FONDS_SCRIPT).toContain("timer=setTimeout(()=>{tries.clear();place();draw()},250)");
+    expect(FONDS_SCRIPT).toContain("timer=setTimeout(()=>{tries.clear();place();draw();fin()},250)");
   });
 
   it("load nothing from the IGN until the visitor picks one: no tile in the page, only its address in the script", () => {
@@ -61,13 +62,13 @@ describe("the IGN's backgrounds on the zoomed maps", () => {
   });
 
   it("lay the tiles over the relief, under our roads, and on a commune again over the dimmed island", () => {
-    expect(trace).toMatch(/clip-path="url\(#isl-clip\)"\/><g id="fd-t" class="fd"><\/g><g class="rd"/);
+    expect(trace).toMatch(/clip-path="url\(#isl-clip\)"\/><g id="rf-t" class="rf" clip-path="url\(#isl-clip\)"><\/g><g id="fd-t" class="fd"><\/g><g class="rd"/);
     expect(commune).toContain('<g id="fd-ecm" class="fd"></g><use href="#isl" class="dim"/>');
     expect(commune).toMatch(/clip-path="url\(#com-clip\)"\/><use href="#fd-ecm" clip-path="url\(#com-clip\)"\/><g class="rd"/);
   });
 
   it("name the chosen one on the line « Carte : », never on a map without the choice", () => {
-    expect(mapCredit(commune)).toContain("de l'IGN (RGE ALTI, couche Photographies aériennes de la Géoplateforme, BD TOPO)<span class=\"fd-c\"></span>, sous Licence Ouverte Etalab 2.0.");
+    expect(mapCredit(commune)).toContain("de l'IGN (RGE ALTI, couche Photographies aériennes de la Géoplateforme, BD ORTHO, BD TOPO)<span class=\"fd-c\"></span>, sous Licence Ouverte Etalab 2.0.");
     expect(mapCredit(islandMap({ label: "L'île" }))).not.toContain("fd-c");
     expect(FONDS.filter((f) => f.credit).map((f) => f.credit)).toEqual(["Plan IGN", "Photo aérienne IGN"]);
   });
@@ -87,5 +88,33 @@ describe("the IGN's backgrounds on the zoomed maps", () => {
     expect(legalPage("https://rundata.re", "confidentialite")).toContain(
       "<p id=\"fonds-ign\">Si vous choisissez le fond Plan IGN ou Photo aérienne, votre navigateur charge ces images chez l'IGN (data.geopf.fr), qui reçoit alors votre adresse IP.</p>",
     );
+  });
+});
+
+describe("the finer relief on the zoomed maps", () => {
+  const island = islandMap({ label: "L'île" });
+  it("is a layer of its own between the relief and the IGN's tiles, on a commune again over the dimmed island", () => {
+    expect(commune).toContain('<g id="rf-ecm" class="rf" clip-path="url(#isl-clip)"></g><g id="fd-ecm" class="fd"></g>');
+    expect(commune).toContain('<use href="#rf-ecm" clip-path="url(#com-clip)"/><use href="#fd-ecm" clip-path="url(#com-clip)"/>');
+    expect(trace).toContain('<g id="rf-t" class="rf" clip-path="url(#isl-clip)"></g>');
+    // A map that does not zoom has no layer to fill, and names no BD ORTHO.
+    expect(island).not.toContain('class="rf"');
+    expect(mapCredit(island)).not.toContain("BD ORTHO");
+  });
+
+  it("is in the page only as its files' address, its tiles put in by the script once the map is close enough, on the relief only", () => {
+    expect(commune).not.toContain(RELIEF_FIN);
+    expect(JSON.parse(/,RF=("[^"]+"),/.exec(FONDS_SCRIPT)![1])).toBe(RELIEF_FIN);
+    expect(FONDS_SCRIPT).toContain(`,RN=${RELIEF_FIN_N},RZ=${RELIEF_FIN_ZOOM};`);
+    // Nothing before RELIEF_FIN_ZOOM times closer than the island, nor while an IGN background is picked.
+    expect(FONDS_SCRIPT).toContain("if(cur||!rg||W/v.width<RZ)return;");
+    expect(FONDS_SCRIPT).toContain('im.setAttribute("href",RF+id+".webp")');
+  });
+
+  it("has every tile of its set in public/, each light enough to come on a phone", () => {
+    const names = readdirSync(new URL("../public/", import.meta.url)).filter((f) => f.startsWith("relief-fin-"));
+    const want = Array.from({ length: RELIEF_FIN_N ** 2 }, (_, i) => `${RELIEF_FIN.slice(1)}${i % RELIEF_FIN_N}-${Math.floor(i / RELIEF_FIN_N)}.webp`);
+    expect(names.sort()).toEqual(want.sort());
+    for (const f of names) expect(statSync(new URL(`../public/${f}`, import.meta.url)).size).toBeLessThanOrEqual(230 * 1024);
   });
 });

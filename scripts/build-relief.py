@@ -8,13 +8,21 @@ exaggerated so that the cirques and the volcano read at a few hundred pixels acr
 Same bounds and proportions as src/places/island.json, so the image falls exactly under the map's coastline and
 markers: the IGN serves the elevation for that box in plain longitude and latitude, which is the map's projection.
 
-Sources: IGN, RGE ALTI, from the Géoplateforme WMS as raw 32-bit floats, and the aerial photos of its layer
-ORTHOIMAGERY.ORTHOPHOTOS (« Photographies aériennes »), from the same WMS on the same box and grid (Licence Ouverte 2.0). One request a minute to the Géoplateforme.
+With --fin, the same relief 4 times finer, for the maps zoomed in: the island cut in FIN × FIN tiles, each computed on
+the same grid as the island (so 4 times finer), with a margin all round that is cut off afterwards, so that the slopes
+and the blur at a tile's edge are those of its neighbour's and no seam shows. Written as public/relief-fin-<fingerprint>-
+<column>-<row>.webp, the fingerprint of the whole set in src/web/relief.json (« fin »).
+
+Sources: IGN, RGE ALTI, from the Géoplateforme WMS as raw 32-bit floats, and an aerial photo from the same WMS on the
+same box and grid (Licence Ouverte 2.0): for the island, its layer ORTHOIMAGERY.ORTHOPHOTOS (« Photographies
+aériennes »); for the finer tiles, the BD ORTHO by name, brought to the island's colours (PRE_*). One request a minute
+to the Géoplateforme.
 Resized and written as WebP by ImageMagick (`convert`).
 
-Usage: python3 -I scripts/build-relief.py [--cache DIR] [--out DIR] [--sat S] [--earth E] [--gamma G] …
+Usage: python3 -I scripts/build-relief.py [--fin] [--cache DIR] [--out DIR] [--sat S] [--earth E] [--gamma G] …
+  --fin writes the tiles of the finer relief, and leaves the island's picture alone;
   --cache keeps the IGN's answers in DIR, to try other settings without asking again;
-  --out writes the picture there, leaving public/ alone; the other options try other settings than those below.
+  --out writes the pictures there, leaving public/ alone; the other options try other settings than those below.
 """
 import argparse
 import array
@@ -22,6 +30,7 @@ import colorsys
 import hashlib
 import json
 import math
+import re
 import struct
 import subprocess
 import sys
@@ -38,10 +47,16 @@ W, H = ISLAND["w"] * 2, ISLAND["h"] * 2  # computed at twice the map's size, the
 OUT_W = 1200  # wide enough for the map at its largest on a high-density screen
 QUALITY = 82  # WebP
 MAX_BYTES = 164 * 1024  # the picture is on every page with a map: no heavier than the relief by altitude was
-WMS = ("https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&STYLES=&CRS=EPSG:4326"
-       f"&BBOX={LAT0},{LON0},{LAT1},{LON1}&WIDTH={W}&HEIGHT={H}")
-ELEVATION = WMS + "&LAYERS=ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES&FORMAT=image/x-bil;bits=32"
-PHOTO = WMS + "&LAYERS=ORTHOIMAGERY.ORTHOPHOTOS&FORMAT=image/jpeg"
+WMS = "https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&STYLES=&CRS=EPSG:4326"
+ELEVATION = "&LAYERS=ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES&FORMAT=image/x-bil;bits=32"
+PHOTO = "&LAYERS=ORTHOIMAGERY.ORTHOPHOTOS&FORMAT=image/jpeg"
+# The finer tiles: the BD ORTHO by name. The layer ORTHOIMAGERY.ORTHOPHOTOS mixes takes, and at a tile's scale may
+# serve another than at the island's, without saying which.
+PHOTO_FIN = "&LAYERS=ORTHOIMAGERY.ORTHOPHOTOS.BDORTHO&FORMAT=image/jpeg"
+# The finer relief: FIN × FIN tiles, a margin of FIN_MARGIN of a tile's size on each side computed then cut off.
+FIN, FIN_MARGIN = 4, 0.04
+FIN_MAX_BYTES = 230 * 1024  # a tile, fetched only when the map is zoomed in on it
+ATTRIBUTION = "Relief : IGN, RGE ALTI, couche Photographies aériennes de la Géoplateforme et BD ORTHO (Licence Ouverte 2.0)"
 
 EXAGGERATION = 2.2
 SUN = (315, 38)  # azimuth from north, height above the horizon, in degrees: the usual cartographer's light
@@ -77,6 +92,14 @@ TURN, TURN_BY, MASK_BLUR, LIT, MAX_S = (60, 150), 15, 2, 0.5, 0.55
 GREY_KEEP = 0.4
 # The shallows and the river mouths, inside the elevation's coast: the photo's blue, graded with these, never brighter.
 WATER_SAT, WATER_GAMMA = 1.075, 1.15
+# The BD ORTHO is paler and lighter than the take the settings above were made on (saturation 0.24 against 0.40 over
+# the land, 31/10/2026). Before they apply, its saturation times PRE_SAT, its value to the power PRE_GAMMA, and its
+# yellow-greens (hues PRE_TURN, in degrees) turned by up to PRE_TURN_BY towards green, most in the middle: then the
+# settings above give the island the user chose, and the same at 4 times the detail.
+PRE_SAT, PRE_GAMMA, PRE_TURN, PRE_TURN_BY = 1.2, 1.2, (40, 115), 16
+# Past the BD ORTHO's edge at sea the WMS answers white: a pixel of the shallows (under 5 m) above WHITE in each of its
+# channels is sea.
+WHITE = 215
 
 
 def smooth(z, land):
@@ -136,10 +159,21 @@ def ppm(data):
     return data[i + 1:]
 
 
-def pixels(photo):
-    """The photo on the W×H grid, as RGB bytes."""
-    return bytearray(ppm(subprocess.run(["convert", "jpeg:-", "-resize", f"{W}x{H}!", "ppm:-"], input=photo,
-                                        capture_output=True, check=True).stdout))
+def pixels(photo, bd):
+    """The photo on the W×H grid, as RGB bytes; the BD ORTHO's (`bd`) brought to the colours the grading was made on
+    (PRE_*)."""
+    pix = bytearray(ppm(subprocess.run(["convert", "jpeg:-", "-resize", f"{W}x{H}!", "ppm:-"], input=photo,
+                                       capture_output=True, check=True).stdout))
+    if not bd:
+        return pix
+    span = PRE_TURN[1] - PRE_TURN[0]
+    for i in range(0, len(pix), 3):
+        h, s, v = colorsys.rgb_to_hsv(*(x / 255 for x in pix[i:i + 3]))
+        d = h * 360 - PRE_TURN[0]
+        if 0 < d < span:
+            h += PRE_TURN_BY * math.sin(math.pi * d / span) / 360
+        pix[i:i + 3] = bytes(min(255, round(x * 255)) for x in colorsys.hsv_to_rgb(h, min(1.0, s * PRE_SAT), v ** PRE_GAMMA))
+    return pix
 
 
 def highs(z, lo, hi):
@@ -148,11 +182,14 @@ def highs(z, lo, hi):
     return t * t * (3 - 2 * t)
 
 
-def grade(photo, land, z, a):
+def grade(photo, land, z, a, bd):
     """The photo on the grid at full detail, graded: colours 0..255 for each pixel of land, None elsewhere. The sea
     the elevation counts as land (its shallows, down to about -30 m) keeps the photo's dark blue: the map's coastline
-    cuts the picture there."""
-    pix = pixels(photo)
+    cuts the picture there. What the BD ORTHO (`bd`) does not cover (WHITE) leaves `land`."""
+    pix = pixels(photo, bd)
+    for i in range(W * H) if bd else ():
+        if land[i] and z[i] < 5 and min(pix[i * 3:i * 3 + 3]) > WHITE:
+            land[i] = False
     weights = bytearray(W * H)
     for i in range(W * H):
         if land[i]:
@@ -211,27 +248,24 @@ def png(path, rgba, w, h):
                      + chunk(b"IDAT", zlib.compress(rows, 6)) + chunk(b"IEND", b""))
 
 
-def main():
-    args = argparse.ArgumentParser()
-    args.add_argument("--cache", type=Path)
-    args.add_argument("--out", type=Path)
-    for name, default in (("sat", SAT), ("earth", EARTH), ("gamma", GAMMA), ("contrast", CONTRAST), ("warm", WARM),
-                          ("shade", SHADE), ("high-gamma", HIGH_GAMMA), ("high-shade", HIGH_SHADE), ("floor", SHADOW_FLOOR)):
-        args.add_argument(f"--{name}", type=float, default=default)
-    a = args.parse_args()
-    if a.cache:
-        a.cache.mkdir(parents=True, exist_ok=True)
-    z = array.array("f", fetch(ELEVATION, "altitudes.bil", a.cache))
+def shaded(box, cache, a, bd=False):
+    """The relief of `box` (longitudes and latitudes, as the island's bbox) on the W×H grid: RGBA bytes, the sea
+    transparent. With `bd`, on the BD ORTHO."""
+    lon0, lat0, lon1, lat1 = box
+    wms = WMS + f"&BBOX={lat0},{lon0},{lat1},{lon1}&WIDTH={W}&HEIGHT={H}"
+    if cache:
+        cache.mkdir(parents=True, exist_ok=True)
+    z = array.array("f", fetch(wms + ELEVATION, "altitudes.bil", cache))
     if sys.byteorder != "little":
         z.byteswap()
     assert len(z) == W * H, f"{len(z)} values, {W * H} expected"
     land = [v > -1000 for v in z]  # the sea is « no data » (-99999)
     z = [v if ok else 0.0 for v, ok in zip(z, land)]
     s = smooth(z, land)
-    photo = grade(fetch(PHOTO, "photo.jpg", a.cache), land, z, a)
+    photo = grade(fetch(wms + (PHOTO_FIN if bd else PHOTO), "photo.jpg", cache), land, z, a, bd)
     # Size of a pixel on the ground, in metres.
-    dx = (LON1 - LON0) / W * 111320 * math.cos(math.radians((LAT0 + LAT1) / 2))
-    dy = (LAT1 - LAT0) / H * 110574
+    dx = (lon1 - lon0) / W * 111320 * math.cos(math.radians((lat0 + lat1) / 2))
+    dy = (lat1 - lat0) / H * 110574
     az, alt = (math.radians(a) for a in SUN)
     lx, ly, lz = math.sin(az) * math.cos(alt), math.cos(az) * math.cos(alt), math.sin(alt)
     out = bytearray(W * H * 4)
@@ -254,30 +288,74 @@ def main():
                 r, g, b = (v * 255 * GREY_V / hi for v in (r, g, b))
             o = i * 4
             out[o:o + 4] = bytes((min(255, int(r)), min(255, int(g)), min(255, int(b)), 255))
+    return bytes(out)
+
+
+def webp(rgba, crop, max_bytes):
+    """The picture as WebP, OUT_W wide, cut to `crop` (ImageMagick's geometry) first, no heavier than `max_bytes`."""
     with tempfile.TemporaryDirectory() as tmp:
         src, dst = Path(tmp) / "relief.png", Path(tmp) / "relief.webp"
-        png(src, bytes(out), W, H)
+        png(src, rgba, W, H)
         size = []  # none at first; then a size aimed at, smaller each time, while the picture is too heavy
         while True:
-            subprocess.run(["convert", str(src), "-resize", f"{OUT_W}x", "-quality", str(QUALITY), "-define",
-                            "webp:alpha-quality=90", *size, str(dst)], check=True)
+            subprocess.run(["convert", str(src), *(["-crop", crop, "+repage"] if crop else []), "-resize", f"{OUT_W}x",
+                            "-quality", str(QUALITY), "-define", "webp:alpha-quality=90", *size, str(dst)], check=True)
             data = dst.read_bytes()
-            if len(data) <= MAX_BYTES:
-                break
-            aim = int(size[1].split("=")[1]) - 5000 if size else MAX_BYTES - 15000
+            if len(data) <= max_bytes:
+                return data
+            aim = int(size[1].split("=")[1]) - 5000 if size else max_bytes - 15000
             size = ["-define", f"webp:target-size={aim}"]
+
+
+def main():
+    args = argparse.ArgumentParser()
+    args.add_argument("--fin", action="store_true")
+    args.add_argument("--cache", type=Path)
+    args.add_argument("--out", type=Path)
+    for name, default in (("sat", SAT), ("earth", EARTH), ("gamma", GAMMA), ("contrast", CONTRAST), ("warm", WARM),
+                          ("shade", SHADE), ("high-gamma", HIGH_GAMMA), ("high-shade", HIGH_SHADE), ("floor", SHADOW_FLOOR)):
+        args.add_argument(f"--{name}", type=float, default=default)
+    a = args.parse_args()
+    out = a.out or ROOT / "public"
+    out.mkdir(parents=True, exist_ok=True)
+    target = ROOT / "src/web/relief.json"
+    kept = json.loads(target.read_text())
+    if a.fin:
+        # Each tile on the island's grid, its box widened by FIN_MARGIN on each side, the margin cut off after.
+        dl, db = (LON1 - LON0) / FIN, (LAT1 - LAT0) / FIN
+        m = FIN_MARGIN
+        mx, my = round(W * m / (1 + 2 * m)), round(H * m / (1 + 2 * m))
+        crop = f"{W - 2 * mx}x{H - 2 * my}+{mx}+{my}"
+        tiles = {}
+        for row in range(FIN):
+            for col in range(FIN):
+                box = (LON0 + (col - m) * dl, LAT1 - (row + 1 + m) * db, LON0 + (col + 1 + m) * dl, LAT1 - (row - m) * db)
+                rgba = shaded(box, a.cache and a.cache / f"fin-{col}-{row}", a, bd=True)
+                tiles[col, row] = webp(rgba, crop, FIN_MAX_BYTES)
+                print(f"tile {col}-{row}: {len(tiles[col, row]) // 1024} Ko", flush=True)
+        f = hashlib.sha256(b"".join(tiles[k] for k in sorted(tiles))).hexdigest()[:8]
+        if not a.out:
+            for old in out.glob("relief-fin-*.webp"):
+                old.unlink()
+        for (col, row), data in tiles.items():
+            (out / f"relief-fin-{f}-{col}-{row}.webp").write_bytes(data)
+        print(f"{out}/relief-fin-{f}-*.webp: {sum(map(len, tiles.values())) // 1024} Ko")
+        if not a.out:
+            target.write_text(json.dumps({**kept, "attribution": ATTRIBUTION, "fin": f}) + "\n")
+        return
+    data = webp(shaded((LON0, LAT0, LON1, LAT1), a.cache, a), None, MAX_BYTES)
     # The picture, a file of public/ named by its fingerprint; its name and attribution in src/web/relief.json.
     v = hashlib.sha256(data).hexdigest()[:8]
     if a.out:
-        a.out.mkdir(parents=True, exist_ok=True)
-        (a.out / f"relief-{v}.webp").write_bytes(data)
-        print(f"{a.out}/relief-{v}.webp: {len(data) // 1024} Ko")
+        (out / f"relief-{v}.webp").write_bytes(data)
+        print(f"{out}/relief-{v}.webp: {len(data) // 1024} Ko")
         return
-    for old in (ROOT / "public").glob("relief-*.webp"):
-        old.unlink()
-    (ROOT / f"public/relief-{v}.webp").write_bytes(data)
-    target = ROOT / "src/web/relief.json"
-    target.write_text(json.dumps({"attribution": "Relief : IGN, RGE ALTI et couche Photographies aériennes de la Géoplateforme (Licence Ouverte 2.0)", "v": v}) + "\n")
+    # The island's picture only: « relief-[0-9a-f]* » would also take the tiles, « f » of « fin » being hexadecimal.
+    for old in out.glob("relief-*.webp"):
+        if re.fullmatch(r"relief-[0-9a-f]{8}\.webp", old.name):
+            old.unlink()
+    (out / f"relief-{v}.webp").write_bytes(data)
+    target.write_text(json.dumps({**kept, "attribution": ATTRIBUTION, "v": v}) + "\n")
     print(f"public/relief-{v}.webp: {len(data) // 1024} Ko")
 
 

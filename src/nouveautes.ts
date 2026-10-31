@@ -56,6 +56,7 @@ export const OUTILS: Outil[] = [
 // Newest first; the latest few go out in sources_donnees. Plain words, for residents (worded by marketing): what
 // someone can now ask or find, true outside the page too.
 export const NOUVEAUTES: { date: string; texte: string }[] = [
+  { date: "2026-10-31T16:48:00+04:00", texte: "Cartes\u00a0: en zoomant, le relief devient quatre fois plus détaillé, d'après l'IGN (altitudes RGE ALTI, photos BD ORTHO)." },
   { date: "2026-10-31T15:35:00+04:00", texte: "Bus\u00a0: préparez un trajet d'un arrêt, d'une commune ou d'un lieu à un autre, direct ou avec une correspondance." },
   { date: "2026-10-31T12:59:00+04:00", texte: "Cartes\u00a0: le relief de l'île prend les couleurs du sol, d'après la photo aérienne de l'IGN, à l'accueil et sur les cartes en relief." },
   { date: "2026-10-31T11:02:00+04:00", texte: "Antennes\u00a0: la carte se zoome, sur le relief, le Plan IGN ou la photo aérienne." },
