@@ -2,6 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { heure, minutees, paire, tranche } from "../src/tools/format.js";
 import { hoursOn, hoursText, openNow } from "../src/tools/annuaire.js";
+import { placePage } from "../src/web/pages.js";
+import { pageOf } from "../src/web/places.js";
 
 // One way to write a time in the answers (27/10/2026): « 19:12 » with its minutes, « 18 h » on the hour and
 // « 18 h–21 h » for a span, a no-break space before « h ». Never « 18h », nor « 19 h 12 ».
@@ -58,5 +60,15 @@ describe("the times of the answers", () => {
       });
     }
     expect(glued).toEqual([]);
+  });
+});
+
+// One way to write a date and its time on a page (kit, #575): « le 23/10 à 22:00 », never « 23/10 22:00 » beside it.
+describe("the dates of the pages", () => {
+  it("dates the model's run on a weather page as the confidence's note does, « du 23/10 à 22:00 »", () => {
+    const now = new Date("2026-10-24T10:00:00Z");
+    const prevision = { resume: "", sources: [], jours: [{ jour: "Samedi 24/10", ciel_en_journee: "ensoleillé" }], modele: { nom: "AROME outre-mer de Météo-France", maille_km: 2.5, run_du_modele: "23/10 22:00" } };
+    const data = { value: { meteo: { resume: "", stations: [], sources: [] }, prevision }, fetchedAt: now, stale: false };
+    expect(placePage("https://rundata.re", pageOf("cilaos")!, data as never, now)).toContain("maille de 2,5 km, calcul du 23/10 à 22:00.");
   });
 });
