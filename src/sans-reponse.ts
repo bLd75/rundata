@@ -179,21 +179,32 @@ export async function noter(source: string, url: string, constat: string, now = 
 
 // ---------------------------------------------------------------- The daily recheck
 
+/**
+ * Where the recheck asks a host whose root never answers, though the site does. public-api.meteofrance.fr closes the
+ * connection at its root (520 through Cloudflare, every morning from 25/10/2026), while its APIs answered: the vigilance
+ * was on /vigilance, and the row said it was missing. Asked without a key, its API answers 401: the site answers.
+ */
+const ADRESSES: Record<string, string> = {
+  "public-api.meteofrance.fr": "https://public-api.meteofrance.fr/public/DPVigilance/v1/vigilanceom/flux/dernier",
+};
+
 type Verdict = { issue: "repond" } | { issue: "bloque"; constat: string } | { issue: "echec"; constat: string };
 
 /** One GET of the row's address, as the morning's recheck asks it. */
 export async function essayer(l: Pick<Ligne, "url" | "verifier">, now: Date, fetcher: typeof fetch = fetch): Promise<Verdict> {
   let res: Response;
   count();
+  const adresse = l.verifier ? undefined : ADRESSES[hoteDe(l.url) ?? ""];
   try {
-    res = await fetcher(l.verifier?.url ?? l.url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(DELAI_MS) });
+    res = await fetcher(l.verifier?.url ?? adresse ?? l.url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(DELAI_MS) });
   } catch (err) {
     return { issue: "echec", constat: constatDe({ message: err instanceof Error ? `${err.name} ${err.message}` : String(err) }) ?? "connexion" };
   }
   if (res.status === 403 || res.status === 429) return { issue: "bloque", constat: `http_${res.status}` };
-  // A site's root, where a failed read leaves its host (origineDe), may have no page: an API's often answers 404. There
-  // the site answers; only the network, the delay and a 5xx count, as for the reads (constatDe).
-  const racine = !l.verifier && new URL(l.url).pathname === "/";
+  // A site's root, where a failed read leaves its host (origineDe), may have no page: an API's often answers 404. There,
+  // and at the address a host is asked at (ADRESSES), the site answers; only the network, the delay and a 5xx count, as
+  // for the reads (constatDe).
+  const racine = !l.verifier && (!!adresse || new URL(l.url).pathname === "/");
   if (!res.ok && !(racine && res.status < 500)) return { issue: "echec", constat: `http_${res.status}` };
   const body = await res.text().catch(() => "");
   if (MAINTENANCE.test(body.slice(0, 65_536))) return { issue: "echec", constat: "maintenance" };

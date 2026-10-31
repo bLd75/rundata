@@ -157,6 +157,21 @@ describe("the morning's recheck", () => {
     expect(await sr.essayer({ url: "https://hubeau.eaufrance.fr/x", verifier }, MORNING, answers({ "hubeau.eaufrance.fr": feed("2026-10-25T20:00:00Z") }))).toEqual({ issue: "repond" });
   });
 
+  it("asks Météo-France's API at an address of its API, its root never answering", async () => {
+    // 31/10/2026: the root closed the connection every morning (520 through Cloudflare), the vigilance read all along.
+    const asked: string[] = [];
+    const api = (n: number): typeof fetch =>
+      (async (input: RequestInfo | URL) => {
+        asked.push(String(input));
+        if (new URL(String(input)).pathname === "/") throw new TypeError("Network connection lost.");
+        return new Response("", { status: n });
+      }) as typeof fetch;
+    const l = { url: "https://public-api.meteofrance.fr/", verifier: null };
+    expect(await sr.essayer(l, MORNING, api(401))).toEqual({ issue: "repond" });
+    expect(asked).toEqual(["https://public-api.meteofrance.fr/public/DPVigilance/v1/vigilanceom/flux/dernier"]);
+    expect(await sr.essayer(l, MORNING, api(503))).toEqual({ issue: "echec", constat: "http_503" });
+  });
+
   it("asks each row not « revenu » once, writes everything in one batch and dates the pass", async () => {
     const { db, row } = database();
     const asked: string[] = [];
