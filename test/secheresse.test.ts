@@ -41,7 +41,7 @@ describe("restrictions d'eau", () => {
   it("draws its legend as the charter of the maps wants: each colour as a square then its word, never a coloured word, then the order's date", async () => {
     const page = secheressePage("https://rundata.re", { value: await buildSecheresse(cache()), fetchedAt: new Date(), stale: false });
     expect(page).toContain('<span><svg viewBox="-37 -37 74 74" aria-hidden="true"><rect x="-30" y="-30" width="60" height="60" rx="8" fill="#862e9c"/></svg>crise</span>');
-    expect(page).toContain('<span class="mls">Eau du robinet, d&#39;après l&#39;arrêté préfectoral en vigueur depuis le 10/10/2026.</span>');
+    expect(page).toContain('<span class="mls">Eau du robinet, d&#39;après l&#39;arrêté préfectoral en vigueur depuis le\u00a010/10/2026.</span>');
     expect(page).not.toContain('<span style="color:');
   });
 

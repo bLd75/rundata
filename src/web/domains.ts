@@ -2281,7 +2281,7 @@ export function secheressePage(origin: string, data: Cached<SecheresseAnswer> | 
   </div>
   <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) colorée par le niveau de restriction de l'eau du robinet de chaque commune" })}
   <figcaption class="note" style="color:var(--on-night-muted)">${legende(["vigilance", "alerte", "alerte renforcée", "crise"].map((n): Cle => ({ forme: "aplat", couleur: DROUGHT_COLOR[n], dit: n })),
-    esc(`Eau du robinet, d'après l'arrêté préfectoral en vigueur${d?.arrete_du ? ` depuis le ${d.arrete_du}` : ""}.`))}</figcaption></figure>
+    esc(`Eau du robinet, d'après l'arrêté préfectoral en vigueur${d?.arrete_du ? ` depuis le\u00a0${d.arrete_du}` : ""}.`))}</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-communes-eau">
