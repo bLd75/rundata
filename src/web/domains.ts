@@ -1086,11 +1086,12 @@ export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now 
     : `<div class="now"><span class="big">${total}</span><p>vélo${total > 1 ? "s" : ""} à assistance électrique disponible${total > 1 ? "s" : ""} en ce moment dans les <b>${d.stations.length}\u00a0stations</b> Altervélo de ${esc(BIKE_COMMUNES.join(", ").replace(/, ([^,]+)$/, " et $1"))}.</p></div>`;
 
   const fills = Object.fromEntries(BIKE_COMMUNES.map((c) => [c, "var(--hl)"]));
-  // Each commune served leads to its stations below.
+  // Each commune served leads to its stations below; the others have their bubble only.
   const links: Record<string, ZoneLink> = d
-    ? Object.fromEntries(BIKE_COMMUNES.map((c) => {
-        const n = d.communes?.find((x) => x.commune === c)?.velos_disponibles ?? 0;
-        return [c, { href: `#${anchorId("c", c)}`, say: `${n} vélo${n > 1 ? "s" : ""} disponible${n > 1 ? "s" : ""}` }];
+    ? Object.fromEntries(island.paths.map((p: { nom: string }): [string, ZoneLink] => {
+        if (!BIKE_COMMUNES.includes(p.nom)) return [p.nom, { say: "pas de station Altervélo" }];
+        const n = d.communes?.find((x) => x.commune === p.nom)?.velos_disponibles ?? 0;
+        return [p.nom, { href: `#${anchorId("c", p.nom)}`, say: `${n}\u00a0vélo${n > 1 ? "s" : ""} disponible${n > 1 ? "s" : ""}` }];
       }))
     : {};
   const byCommune = d
@@ -1119,7 +1120,8 @@ export function velosPage(origin: string, data: Cached<VelosAnswer> | null, now 
       `Reste-t-il des vélos Altervélo à la station IUT de Saint-Pierre ? Lis ${url} et dis-le-moi.`)}
   </div>
   <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) : les communes où circulent les vélos Altervélo" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Les communes desservies par Altervélo.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende([{ forme: "aplat", couleur: "var(--hl)", dit: "commune desservie par Altervélo" }],
+    d && data ? esc(`Vélos disponibles d'après les stations, relevé ${readAt(data.fetchedAt, now).de}.`) : undefined)}</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-stations">
@@ -2265,7 +2267,7 @@ export function secheressePage(origin: string, data: Cached<SecheresseAnswer> | 
   for (const c of d?.communes ?? []) {
     const nm = MAP_NAME.get(normalize(c.commune));
     if (nm && c.eau_du_robinet) fills[nm] = DROUGHT_COLOR[c.eau_du_robinet] ?? "";
-    if (nm) links[nm] = { href: `#${anchorId("c", nm)}`, say: `eau du robinet : ${c.eau_du_robinet ?? "aucune restriction"}` };
+    if (nm) links[nm] = { href: `#${anchorId("c", nm)}`, say: `eau du robinet\u00a0: ${c.eau_du_robinet ?? "aucune restriction"}` };
   }
 
   const status = !d
@@ -2368,6 +2370,9 @@ export function noticesHead(avis: { ne_pas_boire?: boolean }[], where = "", dry:
   return `<div class="now"><span class="big">${cuts || bad}</span><p>${text}</p></div>`;
 }
 
+/** The colours of the communes followed on the map of /coupures-eau, drawn the same in its legend. */
+const WATER_CUT = { dry: "#f03e3e", avis: "#4dabf7", calme: "#a5d8ff" };
+
 export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null, now = new Date(), alerte?: Alerte): string {
   const d = data?.value;
   const url = `${origin}/coupures-eau`;
@@ -2378,11 +2383,13 @@ export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null
   for (const c of d?.communes_suivies ?? []) {
     const nm = MAP_NAME.get(normalize(c));
     if (!nm) continue;
-    fills[nm] = dry.includes(c) ? "#f03e3e" : d!.avis.some((n) => n.communes.includes(c)) ? "#4dabf7" : "#a5d8ff";
+    fills[nm] = dry.includes(c) ? WATER_CUT.dry : d!.avis.some((n) => n.communes.includes(c)) ? WATER_CUT.avis : WATER_CUT.calme;
     // Each followed commune leads to its own page of notices.
     const p = pageOf(slugify(nm));
     if (p) links[nm] = { href: `/coupures-eau/${p.slug}`, say: dry.includes(c) ? "eau à ne pas boire" : d!.avis.some((n) => n.communes.includes(c)) ? "avis en cours" : "pas d'avis lu en ce moment" };
   }
+  // The communes whose notices are not read: their bubble only, as the legend says.
+  if (d) for (const p of island.paths as { nom: string }[]) links[p.nom] ??= { say: "avis non lus, voir la mairie ou le distributeur" };
 
   const status = !d
     ? loading("Les avis des distributeurs")
@@ -2410,7 +2417,12 @@ export function coupuresPage(origin: string, data: Cached<CoupuresAnswer> | null
       `Y a-t-il une coupure d'eau à Saint-Denis ? Lis ${url} et dis-moi quand l'eau revient.`)}
   </div>
   <figure class="card mapcard">${islandMap({ fills, links, label: "Carte de La Réunion (974) : les communes dont les avis de coupure d'eau sont suivis" })}
-  <figcaption class="note" style="color:var(--on-night-muted)">Communes dont nous lisons les avis : <span style="color:#f03e3e">eau à ne pas boire</span>, <span style="color:#4dabf7">avis en cours</span>, <span style="color:#a5d8ff">pas d'avis lu en ce moment</span>. Les autres communes : avis non lus, voir la mairie ou le distributeur.</figcaption></figure>
+  <figcaption class="note" style="color:var(--on-night-muted)">${legende([
+    { forme: "aplat", couleur: WATER_CUT.dry, dit: "eau à ne pas boire" },
+    { forme: "aplat", couleur: WATER_CUT.avis, dit: "avis en cours" },
+    { forme: "aplat", couleur: WATER_CUT.calme, dit: "pas d'avis lu en ce moment" },
+    { forme: "aplat", couleur: "var(--land)", dit: "avis non lus\u00a0: voir la mairie ou le distributeur" },
+  ], d && data ? esc(`Avis des distributeurs, lus ${readAt(data.fetchedAt, now).a}.`) : undefined)}</figcaption></figure>
 </div>`;
 
   const body = `<section aria-labelledby="h-avis">

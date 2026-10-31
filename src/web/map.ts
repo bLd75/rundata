@@ -75,9 +75,13 @@ export interface Marker {
   tip?: { place: string; value: string; detail: string };
 }
 
-/** A commune of the map that leads somewhere: the card of its zone, its page. `say` is what the map shows of it. */
+/**
+ * A commune of the map and its bubble (carte-points.ts, marketing's charter of the maps): its name, then `say`, what the
+ * map shows of it. `href`, where it leads (the card of its zone, its page): without it, the bubble alone (a commune
+ * whose notices are not read, one without a station).
+ */
 export interface ZoneLink {
-  href: string;
+  href?: string;
   say?: string;
 }
 
@@ -233,14 +237,19 @@ function marker(m: Marker, hit = HIT, at?: [number, number]): string {
 const pointData = (lines: (string | undefined)[]) =>
   (["pn", "p2", "p3"] as const).map((k, i) => (lines[i] ? ` data-${k}="${esc(lines[i]!)}"` : "")).join("");
 
-/** Each linked commune as a link over its shape, invisible until hovered or focused. */
+/**
+ * Each commune given as a link over its shape, invisible until hovered or focused, with its bubble's lines (`data-pn`,
+ * `data-p2`) and its link's words (`data-pv`, « Voir la commune → »). One without `href` has its bubble only, and is
+ * not said: the map's legend says it.
+ */
 function zoneLinks(links: Record<string, ZoneLink>, named = false): string {
   const out = island.paths
     .filter((p) => links[p.nom])
     .map((p) => {
       const l = links[p.nom];
       const said = l.say ? `${p.nom} : ${l.say}, voir le détail` : `${p.nom}, voir sa page`;
-      return `<a class="zn" href="${esc(l.href)}"${named ? ' tabindex="-1" aria-hidden="true"' : ` aria-label="${esc(said)}"`}><title>${esc(p.nom)}</title><path d="${p.d}"/></a>`;
+      const a11y = !l.href || named ? ' tabindex="-1" aria-hidden="true"' : ` aria-label="${esc(said)}"`;
+      return `<a class="zn"${l.href ? ` href="${esc(l.href)}"` : ""}${a11y}${pointData([p.nom, l.say])}${l.href ? ' data-pv="commune"' : ""}><title>${esc(p.nom)}</title><path d="${p.d}"/></a>`;
     })
     .join("");
   return out ? `<g class="zones">${out}</g>` : "";
@@ -730,8 +739,8 @@ export function islandMap(opts: {
     ? `<use href="#isl" class="land"/><image href="${RELIEF_PATH}" width="${W}" height="${H}" preserveAspectRatio="none" clip-path="url(#isl-clip)"/>` +
       (opts.fond ? `<g id="fd-${esc(opts.fond)}" class="fd"></g>` : "")
     : `<use href="#isl" class="land"/>${fills}`;
-  // The names over the relief only: on the maps in colours (fills), the colours are the data.
-  const names = opts.names ?? (terrain ? namesLayer({ frame: [0, 0, W, H], unit: W / PHONE_PX, busy, hide: !!opts.top, first: opts.first }) : "");
+  // The six names on every map of the whole island, the maps in colours (fills) too (marketing's charter, § 2.4).
+  const names = opts.names ?? namesLayer({ frame: [0, 0, W, H], unit: W / PHONE_PX, busy, hide: !!opts.top, first: opts.first });
   return `<svg class="map${terrain ? " terrain" : ""}" viewBox="0 0 ${W} ${H}" ${role} aria-label="${esc(opts.label)}">` +
     `<defs><g id="isl">${paths}</g>${terrain ? `<clipPath id="isl-clip">${paths}</clipPath>` : ""}</defs>` +
     `<rect class="sea" width="${W}" height="${H}" rx="28"/>` +

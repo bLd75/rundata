@@ -33,14 +33,14 @@ describe("restrictions d'eau", () => {
   it("leads from each commune of the map to its row of the table", async () => {
     const page = secheressePage("https://rundata.re", { value: await buildSecheresse(cache()), fetchedAt: new Date(), stale: false });
     expect(mapLinks(page)).toHaveLength(24);
-    expect(mapLinks(page).find((l) => l.href === "#c-saint-joseph")?.label).toBe("Saint-Joseph : eau du robinet : crise, voir le détail");
+    expect(mapLinks(page).find((l) => l.href === "#c-saint-joseph")?.label).toBe("Saint-Joseph : eau du robinet\u00a0: crise, voir le détail");
     expect(deadAnchors(page)).toEqual([]);
     expect(doubleIds(page)).toEqual([]);
   });
 
   it("draws its legend as the charter of the maps wants: each colour as a square then its word, never a coloured word, then the order's date", async () => {
     const page = secheressePage("https://rundata.re", { value: await buildSecheresse(cache()), fetchedAt: new Date(), stale: false });
-    expect(page).toContain('<span><svg viewBox="-37 -37 74 74" aria-hidden="true"><rect x="-30" y="-30" width="60" height="60" rx="8" fill="#862e9c"/></svg>crise</span>');
+    expect(page).toContain('<span><svg viewBox="-37 -37 74 74" aria-hidden="true"><rect x="-30" y="-30" width="60" height="60" rx="8" style="fill:#862e9c"/></svg>crise</span>');
     expect(page).toContain('<span class="mls">Eau du robinet, d&#39;après l&#39;arrêté préfectoral en vigueur depuis le\u00a010/10/2026.</span>');
     expect(page).not.toContain('<span style="color:');
   });

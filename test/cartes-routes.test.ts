@@ -273,14 +273,16 @@ describe("the roads and the names of places on the pages' maps", () => {
     expect(trail.indexOf('<g class="rd"')).toBeLessThan(trail.indexOf('class="trk-halo"'));
   });
 
-  it("keep the colours of the data: under the weather's, the main roads alone on the maps in colours, nothing on the home page's", () => {
+  it("keep the colours of the data: under the weather's, the main roads and the six names alone on the maps in colours, nothing on the home page's", () => {
     const wx = islandMap({ under: "<foreignObject/>", top: "<g/>", label: "x" });
     expect(wx.indexOf("<foreignObject/>")).toBeLessThan(wx.indexOf('<g class="rd"'));
     // Its stations are drawn by the page: no name until the script sees them.
     expect(shown(wx)).toEqual([]);
     const fills = islandMap({ fills: { "Saint-Paul": "#f00" }, label: "x" });
     expect(fills).toContain('<g class="rd"');
-    expect(fills).not.toContain('<g class="nm"');
+    // The six names of every map of the whole island (marketing's charter of the maps, § 2.4), no other place.
+    expect(fills).toContain('<g class="nm" aria-hidden="true" data-i=""');
+    expect(fills).not.toMatch(/data-r="[123]"/);
     const hero = islandMap({ relief: true, label: "x" });
     expect(hero).not.toContain('class="rd"');
     expect(hero).not.toContain('class="nm"');
@@ -288,7 +290,7 @@ describe("the roads and the names of places on the pages' maps", () => {
 
   it("name the IGN's BD TOPO in the map's credit, and run their script on every page", () => {
     expect(mapCredit(islandMap({ label: "x" }))).toBe(`<p class="sources">Carte : contours des communes de geo.api.gouv.fr, relief, routes et noms de lieux de l'IGN (RGE ALTI, BD TOPO), sous Licence Ouverte Etalab 2.0.</p>`);
-    expect(mapCredit(islandMap({ fills: { "Saint-Paul": "#f00" }, label: "x" }))).toBe(`<p class="sources">Carte : contours des communes de geo.api.gouv.fr, routes de l'IGN (BD TOPO), sous Licence Ouverte Etalab 2.0.</p>`);
+    expect(mapCredit(islandMap({ fills: { "Saint-Paul": "#f00" }, label: "x" }))).toBe(`<p class="sources">Carte : contours des communes de geo.api.gouv.fr, routes et noms de lieux de l'IGN (BD TOPO), sous Licence Ouverte Etalab 2.0.</p>`);
     expect(homePage("https://rundata.re", null, new Date("2026-10-29T18:00:00Z"))).toContain(NOMS_SCRIPT);
   });
 
