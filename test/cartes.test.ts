@@ -40,7 +40,7 @@ describe("the maps of the pages read from a bundle or a database", () => {
     };
     const page = historiquePage("https://rundata.re", cached(value), NOW);
     expect(mapLinks(page).map((l) => l.href)).toEqual(["#s-saint-denis-gillot", "#s-plaine-des-cafres"]);
-    expect(mapLinks(page)[0].label).toBe("Saint-Denis-Gillot : 33 % de la pluie normale en 30 jours, voir le détail");
+    expect(mapLinks(page)[0].label).toBe("Saint-Denis-Gillot : 33\u00a0% de la pluie normale en 30\u00a0jours, voir le détail");
     expect(deadAnchors(page)).toEqual([]);
     expect(doubleIds(page)).toEqual([]);
   });
