@@ -219,6 +219,11 @@ describe("meteo_actuelle with the Météo-France stations", () => {
     expect(r.resume).not.toMatch(/Gillot/);
   });
 
+  it("answers for Sainte-Rose from a « bonne » station first, before a lower score that is only « moyenne »", async () => {
+    const r = body(await meteoActuelle(await mfCache(), "Sainte-Rose", MF_NOW));
+    expect(r.stations.slice(0, 2)).toMatchObject([{ station: "Gros Piton Sainte-Rose", pertinence: "bonne" }, { station: "Saint-Benoît", pertinence: "moyenne" }]);
+  });
+
   it("tours the island with a fixed selection, without the airport twice", async () => {
     const r = body(await meteoActuelle(await mfCache(), undefined, MF_NOW));
     expect(r.stations).toHaveLength(10);
