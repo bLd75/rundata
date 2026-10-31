@@ -444,7 +444,9 @@ export async function sportTool(cache: Cache, sport?: Sport, lieu?: string, q?: 
   }
 
   const today = localDay(now);
-  const { du, au } = window(q, now, sport ? BACK_DAYS_ONE : BACK_DAYS);
+  const asked = window(q, now, sport ? BACK_DAYS_ONE : BACK_DAYS);
+  // Beach volley's only source, the league's calendar, is read from today on and publishes no results: its period starts today.
+  const { du, au } = sport === "beach_volley" && asked.du < today ? { ...asked, du: today } : asked;
   const press = avis.avisPresse(data.presse?.value.infos, now);
   const calledOff = [...(data.avis?.value?.value ?? []), ...press.avis];
   const rows: Row[] = [
